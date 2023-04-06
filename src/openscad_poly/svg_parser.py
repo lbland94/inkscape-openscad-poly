@@ -4,9 +4,7 @@ Copyright (c) 2016 Benedict Endemann
 Copyright (c) 2011 Marty McGuire
 """
 
-import inkex, cubicsuperpath, simplepath, simplestyle, cspsubdiv, re
-from simpletransform import applyTransformToPath, parseTransform, composeTransform
-from bezmisc import beziersplitatt
+import inkex, re
 import openscad_poly.entities as entities
 
 def parse_length_with_units(string):
@@ -58,13 +56,13 @@ def subdivide_cubic_path(sp, flat, i=1):
 
             b = ( p0, p1, p2, p3 )
 
-            if cspsubdiv.maxdist( b ) > flat:
+            if inkex.bezier.maxdist( b ) > flat:
                 break
 
             i += 1
 
         if b is not None:
-            one, two = beziersplitatt( b, 0.5 )
+            one, two = inkex.bezier.beziersplitatt( b, 0.5 )
             sp[i - 1][2] = one[1]
             sp[i][0] = two[2]
             p = [one[2], one[3], two[1]]
@@ -89,10 +87,9 @@ class SvgPath(entities.Path):
     def load(self, node, mat):
         self.id = node.get('id')
         d = node.get('d')
-        if len(simplepath.parsePath(d)) == 0:
+        if len(node.path.to_arrays()) == 0:
             return
-        p = cubicsuperpath.parsePath(d)
-        applyTransformToPath(mat, p)
+        p = inkex.paths.CubicSuperPath(d).transform(mat)
 
         # p is now a list of lists of cubic beziers [ctrl p1, ctrl p2, endpoint]
         # where the start-point is the last point in the previous segment
@@ -111,7 +108,7 @@ class SvgPath(entities.Path):
         # get color
         style = node.get('style')
         try:
-            hexcolor = re.search('fill:#([0-9a-fA-f]{6})', style).group(1)
+            hexcolor = re.search(r'fill:#([0-9a-fA-f]{6})', style).group(1)
             rgb = [
                 int(hexcolor[0:2], 16),
                 int(hexcolor[2:4], 16),
@@ -122,13 +119,13 @@ class SvgPath(entities.Path):
 
         # get optional opacity
         try:
-            opacity = float(re.search('(?:^|;)opacity:([0-9]*\.?[0-9]+)', style).group(1))
+            opacity = float(re.search(r'(?:^|;)opacity:([0-9]*\.?[0-9]+)', style).group(1))
         except (TypeError, AttributeError):
             opacity = 1.0
 
         # get optional fill-opacity (of course there is more than one way to set opacity of paths...)
         try:
-            fill_opacity = float(re.search('(?:^|;)fill-opacity:([0-9]*\.?[0-9]+)', style).group(1))
+            fill_opacity = float(re.search(r'(?:^|;)fill-opacity:([0-9]*\.?[0-9]+)', style).group(1))
         except (TypeError, AttributeError):
             fill_opacity = 1.0
 
@@ -146,7 +143,7 @@ class SvgPath(entities.Path):
     @staticmethod
     def new_path_from_node(node):
         newpath = inkex.etree.Element(inkex.addNS('path', 'svg'))
-        newpath.set('id', node.get('id'))
+        newpath.set('id', node.get('label') or node.get('id'))
         s = node.get('style')
         if s:
             newpath.set('style', s)
@@ -169,7 +166,7 @@ class SvgRect(SvgPath):
             [' l ', [-w, 0]],
             [' Z',  []     ]
         ]
-        newpath.set('d', simplepath.formatPath(a))
+        newpath.set('d', inkex.paths.Path(a))
         SvgPath.load(self, newpath, mat)
 
 class SvgLine(SvgPath):
@@ -183,7 +180,7 @@ class SvgLine(SvgPath):
             ['M ',  [x1, y1]],
             [' L ', [x2, y2]]
         ]
-        newpath.set('d', simplepath.formatPath(a))
+        newpath.set('d', inkex.paths.Path(a))
         SvgPath.load(self, newpath, mat)
 
 class SvgPolyLine(SvgPath):
@@ -289,7 +286,7 @@ class SvgParser(object):
             elif u == 'mm':
                 return [
                     v,
-                    100.0 / default
+                    1
                 ]
 
             elif u == '%':
@@ -314,8 +311,7 @@ class SvgParser(object):
         [self.svgWidth,   self.widthFactor] = self.get_length('width')
         [self.svgHeight, self.heightFactor] = self.get_length('height')
 
-        self.recursively_traverse_svg(self.svg,
-            [
+        self.recursively_traverse_svg(self.svg, [
                 [self.widthFactor,               0.0, -(self.svgWidth/2.0)],
                 [            0.0, -self.heightFactor, (self.svgHeight/2.0)]
             ])
@@ -352,7 +348,9 @@ class SvgParser(object):
                 pass
 
             # first apply the current matrix transform to this node's transform
-            mat_new = composeTransform(mat_current, parseTransform(node.get("transform")))
+            mat_new = inkex.transforms.Transform(mat_current) @ inkex.transforms.Transform(node.get("transform"))
+
+            # inkex.deprecated._deprecated('\ncurrentTransform = ' + str(node.get("transform")) + '\nmat_current = ' + str(mat_current) + '\nmat_new = ' + str(mat_new))
 
             if node.tag == inkex.addNS('g', 'svg') or node.tag == 'g':
                 self.recursively_traverse_svg(node, mat_new, parent_visibility = v)
@@ -367,7 +365,7 @@ class SvgParser(object):
                         y = float(node.get('y', '0'))
                         # Note: the transform has already been applied
                         if (x!=0) or (y!=0):
-                            mat_new_2 = composeTransform(mat_new, parseTransform('translate(%f,%f)' % (x, y)))
+                            mat_new_2 = mat_new @ inkex.transforms.Transform('translate(%f,%f)' % (x, y))
                         else:
                             mat_new_2 = mat_new
                         v = node.get('visibility', v)

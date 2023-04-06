@@ -20,7 +20,7 @@ Contributors:
 Copyright (c) 2016 Benedict Endemann
 Copyright (c) 2011 Marty McGuire
 """
-import inkex
+import inkex, sys
 from openscad_poly.context import OSCADPolyContext
 from openscad_poly.svg_parser import SvgParser
 
@@ -28,20 +28,23 @@ class MyEffect(inkex.Effect):
     def __init__(self):
         inkex.Effect.__init__(self)
         self.context = None
-        self.OptionParser.add_option("--tab",
-                                     action="store", type="string",
-                                     dest="tab")
-
-    def output(self):
-        self.context.generate()
+        self.arg_parser.add_argument("--tab", type=str, dest="tab")
 
     def effect(self):
-        self.context = OSCADPolyContext(self.svg_file)
+        self.context = OSCADPolyContext(self.options.input_file)
         parser = SvgParser(self.document.getroot())
         parser.parse()
         for entity in parser.entities:
             entity.make_poly(self.context)
 
+    def save(self, stream):
+        """Save the svg document to the given stream"""
+        generatedScad = self.context.generate()
+        try:
+            stream.write(generatedScad)
+        except TypeError:
+            stream.write(generatedScad.encode('utf-8'))
+
 if __name__ == '__main__':   #pragma: no cover
     e = MyEffect()
-    e.affect()
+    e.run()
