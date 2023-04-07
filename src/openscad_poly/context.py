@@ -19,17 +19,20 @@ class OSCADPolyContext:
                     polygon['color'][1],
                     polygon['color'][2],
                     polygon['color'][3],
-                    polygon['id'])
+                    polygon['id'] + '_poly')
             else:
-                generatedScad += "\n{}();".format(polygon['id'])
+                generatedScad += "\n{}();".format(polygon['id'] + '_poly')
 
         # generate actual modules from polygons
         for polygon in self.polygons:
             generatedScad += '\n'
-            generatedScad += '\nmodule {}()'.format(polygon['id'])
+            generatedScad += '\nfunction {}() ='.format(polygon['id'] + '_path')
+            generatedScad += '\n  {};'.format(polygon['points'])
+            generatedScad += '\n'
+            generatedScad += '\nmodule {}()'.format(polygon['id'] + '_poly')
             generatedScad += '\n  polygon('
             generatedScad += '\n    points='
-            generatedScad += '\n      {},'.format(polygon['points'])
+            generatedScad += '\n      {}(),'.format(polygon['id'] + '_path')
             generatedScad += '\n    paths='
             generatedScad += '\n      {}'.format(polygon['paths'])
             generatedScad += '\n  );'

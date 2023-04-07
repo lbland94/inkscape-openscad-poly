@@ -350,8 +350,6 @@ class SvgParser(object):
             # first apply the current matrix transform to this node's transform
             mat_new = inkex.transforms.Transform(mat_current) @ inkex.transforms.Transform(node.get("transform"))
 
-            # inkex.deprecated._deprecated('\ncurrentTransform = ' + str(node.get("transform")) + '\nmat_current = ' + str(mat_current) + '\nmat_new = ' + str(mat_new))
-
             if node.tag == inkex.addNS('g', 'svg') or node.tag == 'g':
                 self.recursively_traverse_svg(node, mat_new, parent_visibility = v)
             elif node.tag == inkex.addNS('use', 'svg') or node.tag == 'use':

@@ -37,6 +37,9 @@ class MyEffect(inkex.Effect):
         for entity in parser.entities:
             entity.make_poly(self.context)
 
+    def has_changed(self, ret):
+        return True
+
     def save(self, stream):
         """Save the svg document to the given stream"""
         generatedScad = self.context.generate()
