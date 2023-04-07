@@ -41,4 +41,17 @@ class OSCADPolyContext:
 
     def add_poly(self, poly_id, points, paths, color = None):
         shortened_points = [[round(x, 3),round(y, 3)] for x, y in points]
+
+        # Overlap could occur if points are very close together prior to rounding
+        for i in range(0, len(shortened_points)):
+            if (i >= len(shortened_points)):
+                break
+
+            next = i + 1
+            if i == len(shortened_points) - 1:
+                next = 0
+            if (shortened_points[i][0] == shortened_points[next][0] and shortened_points[i][1] == shortened_points[next][1]):
+                del shortened_points[next]
+                i -= 1
+        
         self.polygons.append({ 'id': poly_id, 'points':shortened_points, 'paths':paths, 'color':color})
